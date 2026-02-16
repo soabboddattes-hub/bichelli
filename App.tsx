@@ -24,7 +24,6 @@ const firebaseConfig = {
   appId: "YOUR_APP_ID"
 };
 
-// التحقق من أن المستخدم قام بتغيير الإعدادات الافتراضية
 const isFirebaseConfigured = firebaseConfig.projectId !== "YOUR_PROJECT_ID";
 
 let db: any = null;
@@ -52,14 +51,10 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [activeBranchTab, setActiveBranchTab] = useState('1');
-  const [showTechGuide, setShowTechGuide] = useState(!isFirebaseConfigured);
 
-  // تحميل البيانات عند بدء التطبيق
   useEffect(() => {
     if (!isFirebaseConfigured || !db) {
       loadLocalData();
-      setConnectionStatus('offline');
-      setIsLoading(false);
       return;
     }
 
@@ -74,10 +69,8 @@ const App: React.FC = () => {
         setSchedules(docs);
         setConnectionStatus('online');
         setIsLoading(false);
-        // تحديث النسخة الاحتياطية المحلية دائماً
         localStorage.setItem('bashli_schedules_backup', JSON.stringify(docs));
       }, (err) => {
-        console.warn("Firebase Access Denied", err);
         loadLocalData();
       });
     } catch (e) {
@@ -88,9 +81,7 @@ const App: React.FC = () => {
 
   const loadLocalData = () => {
     const local = localStorage.getItem('bashli_schedules_backup');
-    if (local) {
-      setSchedules(JSON.parse(local));
-    }
+    if (local) setSchedules(JSON.parse(local));
     setConnectionStatus('offline');
     setIsLoading(false);
   };
@@ -181,21 +172,17 @@ const App: React.FC = () => {
   const handleSaveSchedule = async (updated: Schedule) => {
     if (!updated.farmerName || !updated.phoneNumber || !updated.valve) { alert('يرجى إكمال البيانات.'); return; }
     
-    // 1. العودة للقائمة الرئيسية فوراً وتفريغ البحث
     setEditingSchedule(null);
     setSearchQuery('');
     setActiveBranchTab(updated.branch);
 
-    // 2. محاولة الحفظ في Firebase
     if (connectionStatus === 'online' && db) {
       try { 
         await setDoc(doc(db, "schedules", updated.id), updated); 
       } catch (e) { 
-        console.error("Firebase Save Error:", e);
         saveLocally(updated); 
       }
     } else {
-      // 3. الحفظ محلياً في حال عدم وجود اتصال
       saveLocally(updated);
     }
   };
@@ -262,7 +249,6 @@ const App: React.FC = () => {
               </button>
             </div>
           </div>
-          <p className="text-indigo-300/50 text-[10px] text-center mt-10 font-bold tracking-widest uppercase">تطوير الجمعية المائية ببشلي © 2026</p>
         </div>
       </div>
     );
@@ -270,31 +256,11 @@ const App: React.FC = () => {
 
   return (
     <Layout title={currentPage === 'admin-panel' ? "إدارة الدورة المائية" : "جدول ري فلاح"} onLogout={handleLogout} onNavigateToHome={() => { setCurrentPage(currentPage); setSearchQuery(''); }}>
-      <div className="mb-6 space-y-2">
-        {!isFirebaseConfigured && (
-          <div className="p-4 bg-amber-500 text-white rounded-2xl text-xs font-black text-center shadow-lg animate-pulse">
-            تنبيه: أنت تستخدم إعدادات تجريبية. يرجى وضع مفاتيح Firebase الخاصة بك في الكود لتعمل المزامنة.
-          </div>
-        )}
-        <div onClick={() => setShowTechGuide(!showTechGuide)} className={`p-3 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black cursor-pointer transition-all ${connectionStatus === 'online' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100 animate-pulse'}`}>
-          <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === 'online' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-          {connectionStatus === 'online' ? 'تم الاتصال بالسحابة بنجاح' : 'الوضع المحلي: البيانات لا تُحفظ عالمياً - اضغط هنا'}
+      <div className="mb-6">
+        <div className={`p-3 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black transition-all ${connectionStatus === 'online' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === 'online' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
+          {connectionStatus === 'online' ? 'متصل بالسحابة' : 'يعمل بدون مزامنة'}
         </div>
-        
-        {showTechGuide && (
-          <div className="bg-white p-6 rounded-3xl border-2 border-indigo-100 shadow-xl space-y-4 animate-in slide-in-from-top duration-300">
-            <h4 className="font-black text-indigo-950 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-              خطوات تفعيل الحفظ الدائم (Firebase):
-            </h4>
-            <div className="text-xs text-slate-600 leading-relaxed space-y-3 font-bold">
-              <p>1. اذهب لموقع <a href="https://console.firebase.google.com/" target="_blank" className="text-indigo-600 underline">Firebase Console</a>.</p>
-              <p>2. استبدل <code className="bg-slate-100 p-1">YOUR_PROJECT_ID</code> في ملف <code className="bg-slate-100 p-1">App.tsx</code> بالقيم من إعدادات مشروعك.</p>
-              <p>3. في Vercel، أضف المتغير <code className="bg-slate-100 p-1">API_KEY</code> في الـ Environment Variables.</p>
-            </div>
-            <button onClick={() => setShowTechGuide(false)} className="w-full py-2 bg-indigo-50 text-indigo-600 rounded-xl font-black text-[10px]">فهمت ذلك</button>
-          </div>
-        )}
       </div>
 
       {currentPage === 'farmer-dashboard' && currentFarmer ? (
